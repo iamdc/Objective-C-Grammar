@@ -1,0 +1,920 @@
+% Objective-C Grammar for TXL (Objective-C 2.0)
+% 
+% Copyright (c) 2011, Dhyanesh Chaudhari & Tejinder Dhaliwal
+% All rights reserved.
+
+% Redistribution and use in source and binary forms, with or without
+% modification, are permitted provided that the following conditions are met:
+% 1. Redistributions of source code must retain the above copyright
+%    notice, this list of conditions and the following disclaimer.
+% 2. Redistributions in binary form must reproduce the above copyright
+%    notice, this list of conditions and the following disclaimer in the
+%    documentation and/or other materials provided with the distribution.
+% 3. All materials mentioning features or use of this software
+%    must display the following acknowledgement:
+%    This product includes software developed by Dhyanesh Chaudhari & Tejinder Dhaliwal.
+% 4. Neither the name of the organization nor the
+%    names of its contributors may be used to endorse or promote products
+%    derived from this software without specific prior written permission.
+
+% THIS SOFTWARE IS PROVIDED BY DHYANESH CHAUDHARI AND TEJINDER DHALIWAL ''AS IS'' AND ANY
+% EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+% WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+% DISCLAIMED. IN NO EVENT SHALL DHYANESH CHAUDHARI AND TEJINDER DHALIWAL BE LIABLE FOR ANY
+% DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+% (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+% LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+% ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+% (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+% SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+% Current grammar does not implement full Objective-C grammar. It includes only the
+% stuff needed to successfully parse the undergoing project. This grammar is only intended for
+% fact extraction and assumes that the source code is error-free and could be compiled without
+% any warinings or errors. 
+%
+% The grammar does not parse "#pragma ..." which is only used for compiler specifications.
+% Just comment the line where the "#pragma ..." exists and it should be okay.
+%
+% Revisions:
+%     - November, 2010.		Grammar for Class interface
+%	  - December, 2010.		Grammar for Class implementation and related stuff
+%	  - December, 2010.		Added [NL], [IN], [EX] for asthetics 
+% 
+% 
+
+% ===================== To RUN PARSER ============================================================
+
+% To run the parser
+define program
+    [external_declaration_list]
+end define
+
+% ===================== COMPOUNDS, TOKENS, KEYS, COMMENTS, ETC. ==================================
+
+#pragma -idchars "@"
+
+tokens
+   hex_literal	"0[xX]\d+"
+   %id			+ "\#\i+"
+end tokens
+
+% Compounds used in Objective-C Grammar
+compounds
+    || && *= /= %= &= ^= |= += -= >>= <<= ++ -- -> ... == != <= >= >> <<
+end compounds
+
+keys
+    'in 'const 'volatile
+    'out  'inout 'bycopy 'byref 'oneway
+    '@interface '@end '@private '@protected '@package '@public '@property '@class '@protocol
+    '@synthesize '@dynamic '@selector '@encode '@defs
+    'struct 'union 'enum 
+    'private 'public 'protected
+    'extern 'static 'auto 'register '__declspec 'typedef
+    'nonatomic 'readwrite 'readonly 'assign 'copy
+    %'#import '#include '#define '#else '#endif '#if '#ifdef '#ifndef '#ident '#undef 
+    'case 'default 'if 'else 'switch 'for 'while 'do 'goto 'continue 'break 'return
+    '__use_lexer_hack_to_add_all_typedefs__ 'BOOL 'IMP 'SEL 'Class 'id
+end keys
+
+comments
+    //
+    /*  */
+    #pragma
+end comments 
+
+% ===================== EXTERNAL DECLARATION =====================================================
+
+
+% External Declaration List
+define external_declaration_list
+    [repeat external_declaration]
+end define 
+
+% Not complete - add incrementally 
+define external_declaration
+    [opt preprocessor_declaration]
+    | [opt function_definition]
+    | [opt declaration]
+    | [opt class_declaration_list]
+    | [opt protocol_declaration_list]
+    | [opt class_interface]
+    | [opt class_implementation]
+    % category_interface - not implemented
+    % category_implementation - not implemented
+    % protocol_declaration - not implemented 
+end define 
+
+% ===================== PREPROCESSOR DECLARATION =================================================
+ 
+% Preprocessor Declaration
+% Source: Cpp preprocessor 
+define preprocessor_declaration
+    [preprocessor_declaration]
+    | '# 'define [id] '( [list id+] ') [expression]
+    | '# 'define [id] [expression]
+    | [EX] '#else
+    | [EX] '#endif
+    | [EX] '#if [expression] [IN]
+    | [NL] '#ifdef [id] [IN]
+    | [NL] '#ifndef [id] [IN]
+    | '#ident [stringlit]
+    | '# 'include [stringlit]
+    | '# 'include '< [SPOFF] [filename] '> [SPON]
+    | '#line [integernumber] [opt stringlit]
+    | '#undef [id]
+    | '#LINK [stringlit]
+    | '# 'import [stringlit]
+    | '# 'import '< [SPOFF] [filename] '> [SPON]
+end define 
+
+% File name 
+define filename
+    [file_identifier] [repeat dot_slash_identifier]
+end define
+
+% File Identifier 
+define file_identifier
+    [id]
+    | [key]
+end define 
+
+% For . and / in file structure 
+define dot_slash_identifier
+    [opt '.] [opt '/] [file_identifier]
+end define 
+
+% ===================== CLASS DECLARATION LIST ===================================================
+
+% Class Declaration List 
+define class_declaration_list
+    [class_declaration_list]
+    | '@class [class_list] ';																[NL]
+end define 
+
+% Class list 
+define class_list
+    [class_name]
+    | [class_list] ', [class_name]
+end define 
+
+% ===================== PROTOCOL DECLARATION LIST ================================================
+
+define protocol_declaration_list 
+    '@protocol [protocol_list] ';															[NL]
+end define 
+
+% ===================== CLASS INTERFACE ==========================================================
+
+% Class Interface 
+define class_interface
+    '@interface [class_name] [opt superclass_reference] [opt protocol_reference_list]
+    [opt instance_variables]
+    [opt interface_declaration_list]
+    '@end																					[NL]
+end define
+
+% Class Name (Name of the Class/Interface)
+define class_name
+    [id]
+end define
+
+define superclass_reference
+   ': [superclass_name]
+end define
+
+% Superclass Name (Name of the superclass)
+define superclass_name
+     [id]
+end define
+
+% Protocol Reference List
+define protocol_reference_list
+    '< [protocol_list] '>
+end define
+
+% List of Protocols (separated by comma)
+define protocol_list
+	   [protocol_name]
+	 | [protocol_list] ', [protocol_name]
+end define
+
+% Protocol name (name of the Protocol)
+define protocol_name
+    [id]
+end define
+
+% Instance Variables 
+define instance_variables
+    '{ 																						[NL][IN]
+        [opt struct_declaration_list]														[EX]
+    '}																						[NL]
+    | '{ [visibility_specification] [struct_declaration_list] '}
+    | '{ [struct_declaration_list] [instance_variables] '}
+    | '{ [visibility_specification] [struct_declaration_list] [instance_variables]
+   '}
+end define
+
+% Visibility Specification 
+define visibility_specification
+    'private
+    | 'public
+    | 'protected
+end define
+
+% Struch Declaration List 
+define struct_declaration_list
+    [struct_declaration]
+    | [struct_declaration_list] [struct_declaration]
+end define
+
+% Struct Declaration 
+define struct_declaration
+    [specifier_qualifier_list] [struct_declarator_list] ';									[NL]
+end define
+
+% Specifier Qualifier List 
+define specifier_qualifier_list
+    [type_specifier] [opt specifier_qualifier_list]
+    | [type_qualifier] [opt specifier_qualifier_list]
+end define
+
+define built_in_type
+      'void
+    | 'char
+    | 'short
+    | 'int 
+    | 'long
+    | 'float
+    | 'double
+    | 'BOOL
+    | 'id
+end define
+
+% Type Specifier 
+define type_specifier
+      [built_in_type]
+    | 'signed
+    | 'unsigned
+    | [struct_or_union_specifier]
+    | [enum_specifier]
+    | [class_name] [opt protocol_reference_list]
+    | [id] [opt protocol_reference_list]
+    | [id]
+end define
+
+% Struct Or Union Specifier 
+define struct_or_union_specifier
+    [struct_or_union] [opt id] '{ [repeat struct_declaration] '}
+    | [struct_or_union] [opt id] '{ '@defs '( [class_name] ') '}
+    | [struct_or_union] [id]
+end define
+
+% Struct Or Union Keywords 
+define struct_or_union
+    'struct | 'union
+end define 
+
+% Enumerator Specifier  
+define enum_specifier
+    'enum [opt id] '{ [enumerator_list] '}
+    | 'enum [opt id] '{ [enumerator_list] ', '}
+    | 'enum [id]
+end define 
+
+% Enumerator List 
+define enumerator_list
+    [enumerator]
+    | [enumerator_list] ', [enumerator]
+end define 
+
+% Enumerator 
+define enumerator
+    [id]
+    | [id] '= [constant_expression]
+end define 
+
+% Type Qualifier
+define type_qualifier
+    'const
+    |'volatile
+end define
+
+% Struct Declarator List 
+define struct_declarator_list
+    [struct_declarator]
+    | [struct_declarator_list] ', [struct_declarator]
+end define
+
+% Struct Declarator 
+define struct_declarator
+    [declarator]
+    | [opt declarator] ': [constant_expression]
+end define
+
+% Constant Expression 
+define constant_expression
+    [conditional_expression]
+end define
+
+% Declarator 
+define declarator
+    [pointer] [direct_declarator]
+    | [direct_declarator]
+end define
+
+% Direct Declarator 
+define direct_declarator
+    [id]
+    | '( [declarator] ')
+    | [direct_declarator] '[ [opt constant_expression] ']
+    | [direct_declarator] '( [opt parameter_type_list] ')
+    | [direct_declarator] '( [opt identifier_list] ')
+end define
+
+% Parameter Type List 
+define parameter_type_list
+    [parameter_list]
+    | [parameter_list] ', '...
+end define
+
+% Parameter List 
+define parameter_list
+    [parameter_declaration]
+    | [parameter_list] ', [parameter_declaration]
+end define
+
+% Parameter Declaration 
+define parameter_declaration
+    [declaration_specifiers] [declarator]
+    | [declaration_specifiers] [opt abstract_declarator]
+end define 
+
+% Identifier List 
+define identifier_list
+    [id]
+    | [identifier_list] ', [id]
+end define
+
+% Pointer
+define pointer
+    '* [opt type_qualifier_list]
+    | '* [pointer]
+    | '* [type_qualifier_list] [pointer]
+end define
+
+% Type Qualifier List
+define type_qualifier_list
+    [type_qualifier]
+    | [type_qualifier_list] [type_qualifier]
+end define
+
+% ===================== CLASS IMPLEMENTATION =====================================================
+
+% Class Implementation 
+define class_implementation
+    '@implementation [class_name] [opt superclass_reference] [NL]
+     [opt instance_variables]
+     [repeat implementation_definition_list]
+    '@end 																					[NL]
+end define
+
+% Implementation Definition List 
+define implementation_definition_list
+    [function_definition]
+    | [declaration] 
+    | [class_method_definition] 
+    | [instance_method_definition]
+    | [property_implementation]
+end define 
+
+% Function Definition 
+define function_definition
+    [declaration_specifiers] [declarator] [compound_statement]
+end define
+
+% Compound Statement
+define compound_statement
+    '{																						[NL][IN] 
+        [repeat block_item]         														[EX]
+     '}																						[NL]
+end define 
+
+% Block Item
+define block_item
+    [declaration]
+    | [statement]
+end define 
+
+% Statement
+define statement
+    [labeled_statement]
+   | [expression] ';																		[NL]
+   | [compound_statement]
+   | [selection_statement]
+   | [iteration_statement]
+   | [jump_statement]
+   | ';
+end define
+
+% Labeled Statement
+define labeled_statement
+    [id] ': [statement]
+   | 'case [constant_expression] ': [statement]
+   | 'default ': [statement]
+end define
+
+% Selection Statement - conditionals 
+define selection_statement
+    'if '( [expression] ') [statement] [opt else_statement]
+  | 'switch '( [expression] ') [statement]
+end define
+
+% Else Statement 
+define else_statement
+    'else [statement]
+end define 
+
+% Iteration Statement - loops
+define iteration_statement
+    'while '( [expression] ') [statement]
+  | 'do [statement] 'while '( [expression] ') ';											[NL]
+  | 'for '( [ opt expression] '; [opt expression] '; [opt expression] ') [statement]
+  | 'for '( [for_in_iteration_variable] 'in [expression] ')
+end define
+
+% For In Iteration Variable - For in loops
+define for_in_iteration_variable
+    [parameter_declaration]
+    | [id]
+end define 
+
+% Jump Statements - jumps 
+define jump_statement
+    'goto [id] ';																			[NL]
+  | 'continue ';																			[NL]
+  | 'break ';																				[NL]
+  | 'return [opt expression] '; 															[NL]
+end define 
+
+% Class Method Definition 
+define class_method_definition
+    '+ [method_definition]
+end define
+
+% Instance Method Definition 
+define instance_method_definition
+    '- [method_definition]
+end define
+
+% Method Definitions 
+define method_definition
+    [opt method_type] [method_selector] [opt init_declarator_list] [compound_statement]
+end define
+
+% Property Implementation - @property...
+define property_implementation
+    '@synthesize [property_synthesize_list] ';												[NL]
+    | '@dynamic [identifier_list] ';														[NL]
+end define 
+
+% Property Synthesize Item List - items 
+define property_synthesize_list
+    [property_synthesize_list] ', [id]
+    | [id]
+end define 
+
+% ===================== EXPRESSION ===============================================================
+
+% Expression 
+define expression
+    [assignment_expresion]
+    | [expression] ', [assignment_expresion]
+end define
+
+% Assignment Expression
+define assignment_expresion
+    [conditional_expression]
+    | [unary_expression] [assignment_operator] [assignment_expresion]
+end define
+
+% Conditional Expression
+define conditional_expression
+    [logical_or_expression]
+    | [logical_or_expression] '? [expression] ': [conditional_expression]
+end define
+
+% Logical OR Expression
+define logical_or_expression
+    [logical_and_expression]
+    | [logical_or_expression] '|| [logical_and_expression]
+end define
+
+% Logical AND Expression
+define logical_and_expression
+    [inclusive_or_expression]
+    | [logical_and_expression] '&& [inclusive_or_expression]
+end define
+
+% Incusive OR Expression
+define inclusive_or_expression
+    [exclusive_or_expression]
+    | [inclusive_or_expression] '| [exclusive_or_expression]
+end define
+
+% Exclusive OR Expression
+define exclusive_or_expression
+    [and_expression]
+    | [exclusive_or_expression] '^ [and_expression]
+end define
+
+% AND Expression
+define and_expression
+    [equality_expression]
+    | [and_expression] '& [equality_expression]
+end define
+
+% Equality Expression
+define equality_expression
+    [relational_expression]
+    | [relational_expression] '== [relational_expression]
+    | [relational_expression] '!= [relational_expression]
+end define
+
+% Relational Expression 
+define relational_expression
+    [shift_expression]
+    | [relational_expression] '< [shift_expression]
+    | [relational_expression] '> [shift_expression]
+    | [relational_expression] '<= [shift_expression]
+    | [relational_expression] '>= [shift_expression]
+end define 
+
+% Shift Expression
+define shift_expression
+    [additive_expression]
+    | [shift_expression] '<< [additive_expression]
+    | [shift_expression] '>> [additive_expression]
+end define
+
+% Additive Expression 
+define additive_expression
+    [multiplicative_expression]
+    | [additive_expression] '+ [multiplicative_expression]
+    | [additive_expression] '- [multiplicative_expression]
+end define 
+
+% Multiplicative Expression
+define multiplicative_expression
+    [cast_expression]
+    | [multiplicative_expression] '* [cast_expression]
+    | [multiplicative_expression] '/ [cast_expression]
+    | [multiplicative_expression] '% [cast_expression]
+end define 
+
+% Cast Expression 
+define cast_expression
+    [unary_expression]
+    | '( [type_name] ') [cast_expression]
+end define 
+
+% Unary Expression 
+define unary_expression
+    [postfix_expression]
+    | '++ [unary_expression]
+    | '-- [unary_expression]
+    | [unary_operator] [cast_expression]
+    | 'sizeof [unary_expression]
+    | 'sizeof '( [type_name] ') 
+end define
+
+% Postfix Expression 
+define postfix_expression
+    [primary_expression]
+    | [postfix_expression] '[ [expression] ']
+    | [postfix_expression] '( [opt argument_expression_list] ')
+    | [postfix_expression] '. [id]
+    | [postfix_expression] '-> [id]
+    | [postfix_expression] '++
+    | [postfix_expression] '--
+    | '( [type_name] ') '{ [initializer_list] ', '}
+    | '( [type_name] ') '{ [initializer_list] '}
+end define
+
+% Primary Expression 
+define primary_expression
+    [id]
+    | [constant]
+    | '( [expression] ')
+    | [stringlit]
+    | [ns_stringlit]
+    | [message_expression]
+    | [selector_expression]
+    | [protocol_expression]
+    | [encode_expression]
+end define 
+
+% Message Expression
+define message_expression
+    '[ [receiver] [message_selector] ']
+end define
+
+% Receiver
+define receiver
+    [expression]			% keywords self and super as caught as identifiers 
+    | [typedefed_ident]
+end define
+
+% Typedefed Identifier 
+define typedefed_ident
+    '__use_lexer_hack_to_add_all_typedefs__
+    | 'BOOL
+    | 'IMP
+    | 'SEL
+    | 'Class
+    | 'id
+end define 
+
+% Message Selector 
+define message_selector
+    [id]
+    | [repeat keyword_argument]
+end define
+
+% Keyword Argument 
+define keyword_argument
+    [id] ': [expression]
+    | ': [expression]
+end define 
+
+% Selector Expression 
+define selector_expression
+    '@selector '( [selector_name] ')
+end define
+
+% Selector Name 
+define selector_name
+    [id]
+    | [repeat keyword_name]
+end define
+
+% Keyword Name
+define keyword_name
+    [opt id] ':
+end define 
+
+% Protocol Expression 
+define protocol_expression
+    '@protocol '( [id] ')
+end define
+
+% Encode Expression 
+define encode_expression
+    '@encode '( [id] ')
+end define 
+
+% Argument Expression List
+define argument_expression_list
+    [assignment_expresion]
+    | [argument_expression_list] ', [assignment_expresion]
+end define
+
+% ===================== DECLARATION ==========================================================
+
+% Interface Declaration List 
+define interface_declaration_list
+    [declaration]
+    | [method_declaration]
+    | [property_declaration]
+    | [interface_declaration_list] [property_declaration]
+    | [interface_declaration_list] [declaration]
+    | [interface_declaration_list] [method_declaration]
+end define
+
+% Declaration 
+define declaration
+    [type_declaration] ';																	[NL]
+    | [repeat declaration_specifiers] [opt init_declarator_list] ';							[NL]
+end define
+
+% Declaration Specifier
+define declaration_specifiers
+    [storage_class_specifier] [opt declaration_specifiers]
+    | [type_specifier] [opt declaration_specifiers]
+    | [type_qualifier] [opt declaration_specifiers]
+    | [declspec] [storage_class_specifier] [opt declaration_specifiers]
+    | [declspec] [type_specifier] [opt declaration_specifiers]
+    | [declspec] [type_qualifier] [opt declaration_specifiers]
+end define
+
+% Storage Class Specifier
+define storage_class_specifier
+    'extern
+    | 'static
+    | 'auto
+    | 'register
+end define
+
+% Declspec 
+define declspec
+    '( '__declspec ')
+end define
+
+% Type Declaration 
+define type_declaration
+    'typedef [declaration_specifiers] [type_declarator]
+end define
+
+% Type Declarator 
+define type_declarator
+    [opt pointer] [type_direct_declarator]
+end define
+
+% Type Direct Declarator 
+define type_direct_declarator
+    [id]
+    | '( [type_declarator] ')
+    | [type_direct_declarator] '[ [opt constant_expression] ']
+    | [type_direct_declarator] '( [opt parameter_type_list] ')
+    | [type_direct_declarator] '( [opt identifier_list] ')
+end define
+
+% Init Declarator List 
+define init_declarator_list
+    [init_declarator]
+    | [init_declarator_list] ', [init_declarator]
+end define
+
+% Init Declarator 
+define init_declarator
+    [declarator]
+    | [declarator] '= [initializer]
+end define
+
+% Initializer 
+define initializer
+    [assignment_expresion]
+    | '{ [initializer_list] '}
+    | '{ [initializer_list] ', '}
+end define
+
+% Constants
+define constant
+      [number] 
+    | [hex_literal]
+    | [charlit]
+    | [stringlit]
+    | [ns_stringlit]
+end define
+
+% String Literal for Objective-C (NSString)
+define ns_stringlit
+   [SPOFF] '@ [stringlit] [SPON]
+end define
+
+% Unary Operator 
+define unary_operator
+    '&
+    | '*
+    | '+
+    | '-
+    | '~
+    | '!
+end define
+
+% Type Name
+define type_name
+    [specifier_qualifier_list] [opt abstract_declarator]
+end define
+
+% Abstract Declarator
+define abstract_declarator
+    [pointer]
+    | [direct_abstract_declarator]
+    | [pointer] [direct_abstract_declarator]
+end define 
+
+% Direct Abstract Declarator 
+define direct_abstract_declarator
+    '( [abstract_declarator] ')
+    | '[ [opt constant_expression] ']
+    | [direct_abstract_declarator] '[ [opt constant_expression] ']
+    | '( [opt parameter_type_list] ')
+    | [direct_abstract_declarator] '( [opt parameter_type_list] ')
+end define
+
+% Assignment Operator 
+define assignment_operator
+    '=
+    | '*=
+    | '/=
+    | '%=
+    | '&=
+    | '^=
+    | '|=
+    | '+=
+    | '-=
+    | '>>=
+    | '<<=
+end define 
+
+% Initializer
+define initializer_list
+    [opt designation] [initializer]
+    | [initializer_list] ', [opt designation] [initializer]
+end define
+
+% Designation 
+define designation
+    [repeat designator] '=
+end define 
+
+% Designator 
+define designator
+    '[ [constant_expression] ']
+    | '. [id]
+end define 
+
+% Method Declaration 
+define method_declaration
+    [class_method_declaration]
+    | [instance_method_declaration]
+end define 
+
+% Class Method Declaration 
+define class_method_declaration
+    '+ [method_selector] ';																	[NL]
+    | '+ [method_type] [method_selector] ';													[NL]
+end define 
+
+% Instance Method Declaration 
+define instance_method_declaration
+    '- [method_selector] ';																	[NL]
+    | '- [method_type] [method_selector] ';													[NL]
+end define 
+
+% Method Type 
+define method_type
+    '( [type_name] ')
+end define
+
+% Method Selector 
+define method_selector
+    [id]
+    | [keyword_selector]
+    | [keyword_selector] ', '...
+    | [keyword_selector] ', [parameter_type_list]
+end define 
+
+% Keyword Selector 
+define keyword_selector
+    [keyword_declarator]
+    | [keyword_selector] [keyword_declarator]
+end define 
+
+% Keyword Declarator 
+define keyword_declarator
+    ': [opt method_type] [id]
+    | [id] ': [opt method_type] [id]
+end define 
+
+% Property Declaration 
+define property_declaration
+    '@property [opt property_attributes_declaration] [struct_declaration]
+end define
+
+% Property Attributes Declaration 
+define property_attributes_declaration
+    '( [property_attributes] ')
+end define 
+
+% Property Attributes
+define property_attributes
+    [property_attribute]
+    | [property_attributes] ', [property_attribute]
+end define
+
+% Property Attribute
+define property_attribute
+    [ident]				% This is incomplete (but will work for our project)
+end define
+
+% Idents
+define ident
+    'nonatomic
+    | 'readwrite
+    | 'readonly
+    | 'retain
+    | 'assign
+    | 'copy
+end define 
+
+% ================================================================================================
+
+
+
+
+
+
+
